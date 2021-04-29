@@ -18,7 +18,6 @@ function convert2cbr()
     local ORIGIN_DIR="$1"
     local DESTINY_DIR=$(destiny_dir "$ORIGIN_DIR")
     local CBR_FILE="$DESTINY_DIR.cbr"
-    # echo "$CBR_FILE"
     zip -r "$CBR_FILE" "$ORIGIN_DIR"
 }
 export -f destiny_dir
@@ -28,8 +27,6 @@ export -f convert2cbr
 DEPTH=2
 DEPTH_OUTPUT_FOLDER=1
 ROOT_FOLDER=$1
-
-echo $ROOT_FOLDER
 
 # create output folder
 find $ROOT_FOLDER -type d -mindepth $DEPTH_OUTPUT_FOLDER -maxdepth $DEPTH_OUTPUT_FOLDER \
