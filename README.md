@@ -16,10 +16,10 @@ Usage of img2cbr:
                 directory of destination
         -v	verbose output
 
-It will look for every folder given a depth, and output the converted files to the destiny folder, keeping the same folder structure.
+It will look for every folder given a depth, and output the converted files to the destination folder, keeping the same folder structure.
 
-    $ img2cbr -i /my/folder/of/origin -o /my/folder/of/destiny -d 2 -v
+    $ img2cbr -i /my/folder/of/origin -o /my/folder/of/destination -d 2 -v
 
-Destiny folder will be equal to origin by default, if not specified.
+Destination folder will be equal to origin by default, if not specified.
 
     $ img2cbr -i /my/folder/of/origin
