@@ -7,17 +7,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 var origin, destination string
 var verbose bool
-var mindepth, maxdepth int
+var mindepth, maxdepth, pool int
 
 func init() {
 	flag.StringVar(&origin, "i", "", "directory of origin")
 	flag.StringVar(&destination, "o", "", "directory of destination")
 	flag.BoolVar(&verbose, "v", false, "verbose output")
 	flag.IntVar(&mindepth, "d", 1, "directory depth")
+	flag.IntVar(&pool, "p", 1, "number of parallel convertions")
 	flag.Parse()
 
 	if origin == "" {
@@ -38,9 +40,12 @@ func findDirectories() []string {
 		panic(err)
 	}
 	lines := strings.Split(string(output), "\n")
-	directories := make([]string, len(lines))
-	for i, value := range lines {
-		directories[i] = string(value)
+	directories := make([]string, 0)
+	for _, value := range lines {
+		if value == "" {
+			continue
+		}
+		directories = append(directories, string(value))
 	}
 	return directories
 }
@@ -87,14 +92,48 @@ func printProgress(current, total int) {
 	fmt.Printf("(%d / %d) %d%s\n", current, total, currentProgress, "%")
 }
 
-func main() {
-	directories := findDirectories()
-	total := len(directories) - 1
-	for i, dir := range directories {
-		printProgress(i, total)
-		if dir == "" {
-			continue
-		}
+type runner struct {
+	sync.Mutex
+	sync.WaitGroup
+	total, done int
+	directories chan string
+}
+
+func (r *runner) UpdateProgress(fn func(done int)) {
+	r.Lock()
+	defer r.Unlock()
+	fn(r.done)
+	r.done++
+}
+
+func (r *runner) NewWorker() {
+	defer r.Done()
+	for dir := range r.directories {
+		r.UpdateProgress(func(done int) {
+			printProgress(done, r.total)
+		})
 		img2cbr(dir)
 	}
+}
+
+func newRunner(total int) *runner {
+	return &runner{
+		WaitGroup:   sync.WaitGroup{},
+		total:       total,
+		directories: make(chan string),
+	}
+}
+
+func main() {
+	directories := findDirectories()
+	runner := newRunner(len(directories))
+	for i := 0; i < pool; i++ {
+		runner.Add(1)
+		go runner.NewWorker()
+	}
+	for _, dir := range directories {
+		runner.directories <- dir
+	}
+	close(runner.directories)
+	runner.Wait()
 }

@@ -14,6 +14,8 @@ Usage of img2cbr:
                 directory of origin
         -o string
                 directory of destination
+        -p int
+                number of parallel convertions (default 1)
         -v	verbose output
 
 It will look for every folder given a depth, and output the converted files to the destination folder, keeping the same folder structure.
