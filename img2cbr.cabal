@@ -95,6 +95,8 @@ executable img2cbr
         , img2cbr
         , optparse-applicative
         , process
+        , text
+        , directory
 
 
     -- Directories containing source files.
