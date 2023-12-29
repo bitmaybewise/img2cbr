@@ -94,6 +94,7 @@ executable img2cbr
         base ^>=4.18.1.0
         , img2cbr
         , optparse-applicative
+        , process
 
 
     -- Directories containing source files.

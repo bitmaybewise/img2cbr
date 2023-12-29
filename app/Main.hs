@@ -1,6 +1,7 @@
 module Main where
 
 import Options.Applicative
+import System.Process (readProcess)
 
 data Opts = Opts
   { origin :: String,
@@ -42,7 +43,13 @@ opts =
     (optsParser <**> helper)
     (header "img2cbr - converts a folder containing images to a cbr file")
 
+findDirectories :: Opts -> IO [String]
+findDirectories options = do
+  output <- readProcess "find" [origin options, "-type", "d", "-mindepth", show $ depth options, "-maxdepth", show $ depth options] []
+  pure $ lines output
+
 main :: IO ()
 main = do
   options <- execParser opts
-  print options
+  dirs <- findDirectories options
+  print dirs
