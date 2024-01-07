@@ -2,9 +2,9 @@
 
 module Main where
 
-import Control.Monad (forM_, void, when)
+import Control.Concurrent
+import Control.Monad
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import Options.Applicative
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Process (readProcess)
@@ -13,9 +13,12 @@ data Opts = Opts
   { origin :: String,
     destination :: String,
     depth :: Int,
+    pool :: Int,
     verbose :: Bool
   }
   deriving (Show)
+
+data WorkerDirectories = WorkerDirectories {pending :: MVar Int, channel :: Chan String}
 
 optsParser :: Parser Opts
 optsParser =
@@ -23,6 +26,7 @@ optsParser =
     <$> strOption (long "origin" <> short 'i' <> help "directory of origin")
     <*> strOption (long "destination" <> short 'o' <> help "directory of destination")
     <*> option auto (long "depth" <> short 'd' <> help "directory depth" <> value 1)
+    <*> option auto (long "pool" <> short 'p' <> help "number of parallel convertions" <> value 1)
     <*> switch (long "verbose" <> short 'v' <> help "verbose output")
 
 opts :: ParserInfo Opts
@@ -39,15 +43,35 @@ img2cbr dir options = do
   exists <- doesFileExist $ T.unpack cbr
   if exists
     then when (verbose options) $ do
-      TIO.putStrLn $ "File already exists, skipping -- " <> cbr
+      putStrLn $ "File already exists, skipping -- " <> T.unpack cbr
     else do
       createDirectoryIfMissing True (destination options)
       when (verbose options) $ do
-        TIO.putStrLn $ "packaging -- " <> cbr
+        putStrLn $ "packaging -- " <> T.unpack cbr
       void $ readProcess "zip" ["-r", T.unpack cbr, dir] []
+
+runWorker :: WorkerDirectories -> Opts -> MVar () -> IO ()
+runWorker dirs options await = do
+  totalPending <- readMVar dirs.pending
+  -- checking total pending before readChan, otherwise it will block when empty
+  if totalPending == 0 then takeMVar await else runWorker' totalPending
+  where
+    runWorker' totalPending = do
+      dir <- readChan dirs.channel
+      void $ swapMVar dirs.pending (totalPending - 1)
+      img2cbr dir options
+      runWorker dirs options await
 
 main :: IO ()
 main = do
   options <- execParser opts
   dirs <- findDirectories options
-  forM_ dirs (`img2cbr` options)
+  mDirsTotal <- newMVar $ length dirs
+  dirsChannel <- newChan
+  writeList2Chan dirsChannel dirs
+  let wDirs = WorkerDirectories {pending = mDirsTotal, channel = dirsChannel}
+  awaiting <- replicateM options.pool $ do
+    await <- newMVar ()
+    void . forkIO $ void (runWorker wDirs options await)
+    pure $ \() -> putMVar await ()
+  mapM_ (\wait -> wait ()) awaiting
