@@ -8,6 +8,7 @@ import Data.Text qualified as T
 import Options.Applicative
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Process (readProcess)
+import Text.Printf (printf)
 
 data Opts = Opts
   { origin :: String,
@@ -18,7 +19,7 @@ data Opts = Opts
   }
   deriving (Show)
 
-data WorkerDirectories = WorkerDirectories {pending :: MVar Int, channel :: Chan String}
+data WorkerDirectories = WorkerDirectories {pending :: MVar Int, total :: Int, channel :: Chan String}
 
 optsParser :: Parser Opts
 optsParser =
@@ -50,6 +51,12 @@ img2cbr dir options = do
         putStrLn $ "packaging -- " <> T.unpack cbr
       void $ readProcess "zip" ["-r", T.unpack cbr, dir] []
 
+printProgress :: Int -> Int -> IO ()
+printProgress pending total = do
+  let current = total - pending
+      currentProgress = current * 100 `div` total
+  printf "(%d / %d) %d%s\n" current total currentProgress "%"
+
 runWorker :: WorkerDirectories -> Opts -> MVar () -> IO ()
 runWorker dirs options await = do
   totalPending <- readMVar dirs.pending
@@ -60,16 +67,18 @@ runWorker dirs options await = do
       dir <- readChan dirs.channel
       void $ swapMVar dirs.pending (totalPending - 1)
       img2cbr dir options
+      printProgress (totalPending - 1) dirs.total
       runWorker dirs options await
 
 main :: IO ()
 main = do
   options <- execParser opts
   dirs <- findDirectories options
-  mDirsTotal <- newMVar $ length dirs
+  let total = length dirs
+  mDirsTotal <- newMVar total
   dirsChannel <- newChan
   writeList2Chan dirsChannel dirs
-  let wDirs = WorkerDirectories {pending = mDirsTotal, channel = dirsChannel}
+  let wDirs = WorkerDirectories {pending = mDirsTotal, total = total, channel = dirsChannel}
   awaiting <- replicateM options.pool $ do
     await <- newMVar ()
     void . forkIO $ void (runWorker wDirs options await)
