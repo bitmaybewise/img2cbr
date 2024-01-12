@@ -77,17 +77,7 @@ func img2cbr(dir string) {
 	}
 }
 
-func clearScreenANSI() {
-	fmt.Print("\033[H\033[2J")
-}
-
 func printProgress(current, total int) {
-	if !verbose {
-		clearScreenANSI()
-		for i := 0; i < current; i++ {
-			fmt.Print(".")
-		}
-	}
 	currentProgress := current * 100 / total
 	fmt.Printf("(%d / %d) %d%s\n", current, total, currentProgress, "%")
 }
