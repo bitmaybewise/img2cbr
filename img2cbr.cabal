@@ -74,6 +74,7 @@ executable img2cbr
         , process
         , text
         , directory
+        , filepath
 
 
     -- Directories containing source files.

@@ -7,6 +7,7 @@ import Control.Monad
 import Data.Text qualified as T
 import Options.Applicative
 import System.Directory (createDirectoryIfMissing, doesFileExist)
+import System.FilePath (takeDirectory)
 import System.Process (readProcess)
 import Text.Printf (printf)
 
@@ -40,13 +41,13 @@ findDirectories options = do
 
 img2cbr :: String -> Opts -> IO ()
 img2cbr dir options = do
-  let cbr = T.replace (T.pack $ origin options) (T.pack $ destination options) (T.pack $ dir ++ ".cbr")
+  let cbr = T.replace (T.pack options.origin) (T.pack options.destination) (T.pack $ dir ++ ".cbr")
   exists <- doesFileExist $ T.unpack cbr
   if exists
     then when (verbose options) $ do
       putStrLn $ "File already exists, skipping -- " <> T.unpack cbr
     else do
-      createDirectoryIfMissing True (destination options)
+      createDirectoryIfMissing True (takeDirectory . T.unpack $ cbr)
       when (verbose options) $ do
         putStrLn $ "packaging -- " <> T.unpack cbr
       void $ readProcess "zip" ["-r", T.unpack cbr, dir] []
